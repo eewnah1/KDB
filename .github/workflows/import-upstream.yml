@@ -1,0 +1,60 @@
+name: Import KxSystems/kdb upstream
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Clone upstream and copy source tree
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/KxSystems/kdb.git /tmp/kdb-upstream
+          rsync -a --exclude '.git/' --exclude '.github/' /tmp/kdb-upstream/ .
+          python3 - << 'PY'
+          from pathlib import Path
+          notice = '''This repository is a working copy of KxSystems/kdb.
+
+Upstream source:
+  https://github.com/KxSystems/kdb
+
+Companion files to kdb+ and q, published by Kx Systems.
+Licensed under the Apache License, Version 2.0.
+See the LICENSE file in this repository.
+
+kdb+ and q are trademarks of Kx Systems / First Derivatives.
+This working copy does not grant trademark rights.
+'''
+          Path('NOTICE').write_text(notice, encoding='utf-8')
+          banner = '''# KDB
+
+Working copy of [KxSystems/kdb](https://github.com/KxSystems/kdb) (Apache License 2.0) for development under `eewnah1`.
+Original license and attribution are retained. See `NOTICE`, `LICENSE`, and `README.TXT`.
+
+Do not treat this clone as a high-availability upstream. Prefer the official repository for production links.
+'''
+          Path('README.md').write_text(banner, encoding='utf-8')
+          PY
+
+      - name: Commit and push imported tree
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m 'Import KxSystems/kdb working copy with Apache-2.0 attribution retained.'
+          git push origin HEAD:main
